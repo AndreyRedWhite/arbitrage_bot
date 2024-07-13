@@ -158,52 +158,51 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                 usdt_bids = prices[pair1]['bids']
 
                 if usdc_asks and usdt_bids and usdt_to_usdc_asks:
-                    qty_usdc = 100
-                    qty_usdt = 0
-                    total_usdc_used = 0
+                    qty_usdt = 100
+                    qty_usdc = 0
+                    total_usdt_used = qty_usdt
+
+                    for ask_price, ask_volume in usdt_to_usdc_asks:
+                        if qty_usdt <= 0:
+                            break
+                        trade_volume = min(qty_usdt / ask_price, ask_volume)
+                        qty_usdt -= trade_volume * ask_price
+                        qty_usdc += trade_volume
+
+                    if qty_usdt > 0:
+                        continue
+
+                    qty_usdc = math.floor(qty_usdc * 100) / 100
+                    qty_after_sell = 0
 
                     for ask_price, ask_volume in usdc_asks:
                         if qty_usdc <= 0:
                             break
                         trade_volume = min(qty_usdc / ask_price, ask_volume)
-                        total_usdc_used += trade_volume * ask_price
                         qty_usdc -= trade_volume * ask_price
-                        qty_usdt += trade_volume
+                        qty_after_sell += trade_volume
 
                     if qty_usdc > 0:
                         continue
 
-                    qty_usdt = math.floor(qty_usdt * 100) / 100
-                    qty_after_sell = 0
+                    qty_after_sell = math.floor(qty_after_sell * 100) / 100
+                    final_usdt = 0
 
                     for bid_price, bid_volume in usdt_bids:
-                        if qty_usdt <= 0:
-                            break
-                        trade_volume = min(qty_usdt, bid_volume)
-                        qty_after_sell += trade_volume * bid_price * (1 - fee)
-                        qty_usdt -= trade_volume
-
-                    if qty_usdt > 0:
-                        continue
-
-                    qty_after_sell = math.floor(qty_after_sell * 100) / 100
-                    final_usdc = 0
-
-                    for ask_price, ask_volume in usdt_to_usdc_asks:
                         if qty_after_sell <= 0:
                             break
-                        trade_volume = min(qty_after_sell, ask_volume)
-                        final_usdc += trade_volume / ask_price
+                        trade_volume = min(qty_after_sell, bid_volume)
+                        final_usdt += trade_volume * bid_price * (1 - fee)
                         qty_after_sell -= trade_volume
 
-                    if final_usdc > total_usdc_used:
-                        profit = final_usdc - total_usdc_used
+                    if final_usdt > total_usdt_used:
+                        profit = final_usdt - total_usdt_used
                         opportunities.append({
                             'date': str(datetime.now()),
                             'pair1': pair2,
                             'pair2': pair1,
                             'direction': 'USDC -> USDT',
-                            'final_usdc': final_usdc,
+                            'final_usdt': final_usdt,
                             'profit': profit
                         })
 
