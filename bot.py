@@ -307,7 +307,7 @@ async def main():
         if opportunities:
             logger.error(f"Arbitrage opportunities found: {opportunities}")
             write_opportunities_to_file(opportunities)
-            for opportunity in opportunities[-1]:
+            for opportunity in opportunities:
                 execute_arbitrage(opportunity)
 
         await asyncio.sleep(1)
