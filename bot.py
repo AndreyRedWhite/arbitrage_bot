@@ -116,8 +116,9 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         qty_usdt -= trade_volume * ask_price
                         qty_usdc += trade_volume
 
-                    if qty_usdt > 0:
-                        continue
+                    # Проверка на неполное использование USDT
+                    if total_usdt_used < 100:
+                        qty_usdt += (100 - total_usdt_used)  # Вернем неиспользованные USDT
 
                     qty_usdc = math.floor(qty_usdc * 100) / 100
                     qty_after_sell = 0
@@ -128,9 +129,6 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdc, bid_volume)
                         qty_after_sell += trade_volume * bid_price
                         qty_usdc -= trade_volume
-
-                    if qty_usdc > 0:
-                        continue
 
                     qty_after_sell = math.floor(qty_after_sell * 100) / 100
                     final_usdt = 0
@@ -169,8 +167,9 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         qty_usdt -= trade_volume * ask_price
                         qty_usdc += trade_volume
 
-                    if qty_usdt > 0:
-                        continue
+                    # Проверка на неполное использование USDT
+                    if total_usdt_used < 100:
+                        qty_usdt += (100 - total_usdt_used)  # Вернем неиспользованные USDT
 
                     qty_usdc = math.floor(qty_usdc * 100) / 100
                     qty_after_sell = 0
@@ -181,9 +180,6 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdc / ask_price, ask_volume)
                         qty_usdc -= trade_volume * ask_price
                         qty_after_sell += trade_volume
-
-                    if qty_usdc > 0:
-                        continue
 
                     qty_after_sell = math.floor(qty_after_sell * 100) / 100
                     final_usdt = 0
