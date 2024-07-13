@@ -3,3 +3,4 @@ certifi==2024.6.2
 pybit==5.8.0
 python-dotenv==1.0.1
 websockets==12.0
+aiogram
