@@ -24,7 +24,7 @@ session = HTTP(
 # Настройка логирования
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler('arbitrage_bot_new_commissions.log')
+file_handler = logging.FileHandler('logs/arbitrage_bot.log')
 file_handler.setLevel(logging.INFO)
 file_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(file_format)
