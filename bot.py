@@ -1,11 +1,8 @@
-import aiohttp
 import asyncio
 import logging
 import os
 import time
 from pybit.unified_trading import HTTP
-import certifi
-import ssl
 from datetime import datetime
 from dotenv import load_dotenv
 import math
@@ -27,7 +24,7 @@ session = HTTP(
 # Настройка логирования
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler('arbitrage_bot.log')
+file_handler = logging.FileHandler('arbitrage_bot_new_commissions.log')
 file_handler.setLevel(logging.INFO)
 file_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 file_handler.setFormatter(file_format)
@@ -39,50 +36,60 @@ console_format = logging.Formatter('%(asctime)s - %(message)s')
 console_handler.setFormatter(console_format)
 logger.addHandler(console_handler)
 
+# PAIRS = [
+#     ('DOGEUSDT', 'DOGEUSDC'),
+#     ('MNTUSDT', 'MNTUSDC'),
+#     ('XRPUSDT', 'XRPUSDC'),
+#     ('APEXUSDT', 'APEXUSDC'),
+#     ('WLDUSDT', 'WLDUSDC'),
+#     ('ADAUSDT', 'ADAUSDC'),
+#     ('OPUSDT', 'OPUSDC'),
+#     ('LDOUSDT', 'LDOUSDC')
+# ]
+
+# added all cryptopairs
+
 PAIRS = [
-    ('DOGEUSDT', 'DOGEUSDC'),
-    ('MNTUSDT', 'MNTUSDC'),
-    ('XRPUSDT', 'XRPUSDC'),
-    ('APEXUSDT', 'APEXUSDC'),
-    ('WLDUSDT', 'WLDUSDC'),
-    ('ADAUSDT', 'ADAUSDC'),
-    ('OPUSDT', 'OPUSDC'),
-    ('LDOUSDT', 'LDOUSDC')
+    ('ADAUSDT', 'ADAUSDC'), ('APEUSDT', 'APEUSDC'), ('APEXUSDT', 'APEXUSDC'),
+    ('APTUSDT', 'APTUSDC'), ('ARBUSDT', 'ARBUSDC'), ('CHZUSDT', 'CHZUSDC'),
+    ('DOGEUSDT', 'DOGEUSDC'), ('DOTUSDT', 'DOTUSDC'), ('EOSUSDT', 'EOSUSDC'),
+    ('FILUSDT', 'FILUSDC'), ('GMTUSDT', 'GMTUSDC'), ('HFTUSDT', 'HFTUSDC'),
+    ('ICPUSDT', 'ICPUSDC'), ('LDOUSDT', 'LDOUSDC'), ('LUNCUSDT', 'LUNCUSDC'),
+    ('MANAUSDT', 'MANAUSDC'), ('MATICUSDT', 'MATICUSDC'), ('MNTUSDT', 'MNTUSDC'),
+    ('OPUSDT', 'OPUSDC'), ('SANDUSDT', 'SANDUSDC'), ('SEIUSDT', 'SEIUSDC'),
+    ('SHIBUSDT', 'SHIBUSDC'), ('STRKUSDT', 'STRKUSDC'), ('SUIUSDT', 'SUIUSDC'),
+    ('TRXUSDT', 'TRXUSDC'), ('USDEUSDT', 'USDEUSDC'), ('WLDUSDT', 'WLDUSDC'),
+    ('XLMUSDT', 'XLMUSDC'), ('XRPUSDT', 'XRPUSDC'), ('ZKUSDT', 'ZKUSDC'), ('ZROUSDT', 'ZROUSDC')
 ]
 
 
-async def fetch_ticker_info(session, url, headers):
+async def fetch_ticker_info(session, pair):
     try:
-        async with session.get(url, headers=headers, ssl=False) as response:
-            data = await response.json()
-            if 'result' in data and len(data['result']['list']) > 0:
-                ticker_info = data['result']['list'][0]
-                return {
-                    'symbol': ticker_info['symbol'],
-                    'bid_price': float(ticker_info['bid1Price']),
-                    'ask_price': float(ticker_info['ask1Price'])
-                }
-            else:
-                logger.error(f"Error: No data in response for {url}")
-                return None
+        data = session.get_orderbook(symbol=pair, category="spot")
+        if 'result' in data and len(data['result']) > 0:
+            ticker_info = data['result']
+            return {
+                'symbol': pair,
+                'bid_price': float(ticker_info['b'][0][0]),
+                'ask_price': float(ticker_info['a'][0][0])
+            }
+        else:
+            logger.error(f"Error: No data in response for pair {pair}")
+            return None
     except Exception as e:
-        logger.error(f"Error fetching price data: {str(e)}")
+        logger.error(f"Error fetching price data for pair {pair}: {str(e)}")
         return None
 
 
-async def fetch_all_tickers_info(pairs, api_key):
-    headers = {"X-API-KEY": api_key}
-    ssl_context = ssl.create_default_context(cafile=certifi.where())
-    async with aiohttp.ClientSession() as session:
-        tasks = []
-        for pair in pairs:
-            url = f"https://api.bybit.com/v5/market/tickers?category=spot&symbol={pair}"
-            tasks.append(fetch_ticker_info(session, url, headers))
-        results = await asyncio.gather(*tasks)
-        return {result['symbol']: result for result in results if result is not None}
+async def fetch_all_tickers_info(pairs, session):
+    tasks = [fetch_ticker_info(session, pair) for pair in pairs]
+    results = await asyncio.gather(*tasks)
+    return {result['symbol']: result for result in results if result is not None}
 
 
 def calculate_arbitrage_opportunities(prices, fee=0.001):
+    start_time = time.time()
+    logger.info("started to calc oppotunities")
     opportunities = []
     if 'USDCUSDT' in prices:
         usdc_to_usdt_sell_price = prices['USDCUSDT']['bid_price']
@@ -94,15 +101,15 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
 
                 # Расчет для направления USDT -> USDC
                 if buy_price_usdt and sell_price_usdc and usdc_to_usdt_sell_price:
-                    # Количество монет, которые мы можем купить на 1000 USDT с учетом комиссии и округлением вниз
+                    # Количество монет, которые мы можем купить на 100 USDT с учетом комиссии и округлением вниз
                     qty_after_buy_fee = (100 / buy_price_usdt) * (1 - fee)
                     qty_after_buy_fee = math.floor(qty_after_buy_fee * 100) / 100  # Округление вниз до сотых
 
-                    # Количество USDC после продажи с вычетом комиссии и округлением вниз
-                    usdc_after_sell_fee = (qty_after_buy_fee * sell_price_usdc) * (1 - fee)
+                    # Количество USDC после продажи c округлением вниз
+                    usdc_after_sell_fee = qty_after_buy_fee * sell_price_usdc
                     usdc_after_sell_fee = math.floor(usdc_after_sell_fee * 100) / 100  # Округление вниз до сотых
 
-                    # Конвертация USDC обратно в USDT с вычетом комиссии и округлением вниз
+                    # Конвертация USDC обратно в USDT без учета комиссии
                     final_usdt = usdc_after_sell_fee * usdc_to_usdt_sell_price
 
                     if final_usdt > 100:
@@ -126,8 +133,8 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                 sell_price_usdt = prices[pair1]['bid_price']
 
                 if buy_price_usdc and sell_price_usdt and usdt_to_usdc_buy_price:
-                    # Количество монет, которые мы можем купить на 1000 USDC с учетом комиссии и округлением вниз
-                    qty_after_buy_fee = (100 / buy_price_usdc) * (1 - fee)
+                    # Количество монет, которые мы можем купить на 100 USDC с учетом комиссии и округлением вниз
+                    qty_after_buy_fee = (100 / buy_price_usdc)
                     qty_after_buy_fee = math.floor(qty_after_buy_fee * 100) / 100  # Округление вниз до сотых
 
                     # Количество USDT после продажи с вычетом комиссии и округлением вниз
@@ -152,7 +159,8 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                             'final_usdc': final_usdc,
                             'profit': profit
                         })
-
+    end_time = time.time()
+    logger.info(f"Time taken for calculating: {end_time - start_time} seconds")
     return opportunities
 
 
@@ -261,7 +269,7 @@ def execute_arbitrage(opportunity):
         wait_for_order(pair2, sell_order_id)
 
         # Учитываем комиссию после продажи
-        usdc_balance = math.floor((qty_after_buy_fee * sell_price * (1 - fee)) * 100) / 100
+        usdc_balance = math.floor(qty_after_buy_fee * sell_price * 100) / 100
 
         # Шаг 3: Продажа USDC за USDT
         if usdc_balance > 0:
@@ -274,14 +282,14 @@ def execute_arbitrage(opportunity):
         wait_for_order('USDCUSDT', buy_usdc_order_id)
 
         # Учитываем комиссию после покупки
-        usdc_balance = math.floor((qty * (1 - fee)) * 100) / 100
+        usdc_balance = math.floor(qty * 100) / 100
 
         # Шаг 2: Покупка пары2 за USDC
         buy_order_id = place_order(pair2, 'Buy', usdc_balance, buy_price, "Limit")
         wait_for_order(pair2, buy_order_id)
 
         # Учитываем комиссию после покупки
-        qty_after_buy_fee = math.floor((usdc_balance / buy_price * (1 - fee)) * 100) / 100
+        qty_after_buy_fee = math.floor(usdc_balance / buy_price  * 100) / 100
 
         # Шаг 3: Продажа пары2 за USDT
         sell_order_id = place_order(pair1, 'Sell', qty_after_buy_fee, sell_price, "Limit")
@@ -293,14 +301,13 @@ async def main():
     while True:
         pairs_to_fetch = [pair for pair1, pair2 in PAIRS for pair in [pair1, pair2]]
         pairs_to_fetch.append('USDCUSDT')  # добавляем пару для конвертации USDC в USDT
-        prices = await fetch_all_tickers_info(pairs_to_fetch, BYBIT_API_KEY)
+        prices = await fetch_all_tickers_info(pairs_to_fetch, session)
         logger.info(f"Fetched prices: {prices}")
-
         opportunities = calculate_arbitrage_opportunities(prices)
         if opportunities:
             logger.error(f"Arbitrage opportunities found: {opportunities}")
             write_opportunities_to_file(opportunities)
-            for opportunity in opportunities:
+            for opportunity in opportunities[-1]:
                 execute_arbitrage(opportunity)
 
         await asyncio.sleep(1)
