@@ -253,22 +253,23 @@ def execute_arbitrage(opportunity):
     buy_price = opportunity['buy_price']
     sell_price = opportunity['sell_price']
     usdc_to_usdt_sell_price = opportunity.get('usdc_to_usdt_sell_price', 1)
-    qty = math.floor((100 / buy_price) * 100) / 100  # Количество для покупки на 100 USDT, округленное вниз до сотых
+    qty_usdt = 100  # Количество для покупки на 100 USDT
     fee = 0.001
 
     if direction == 'USDT -> USDC':
-        # Шаг 1: Покупка за USDT
+        # Шаг 1: Покупка моенты за USDT
+        qty = math.floor((qty_usdt / buy_price) * 100) / 100
         buy_order_id = place_order(pair1, 'Buy', qty, buy_price, "Limit")
         wait_for_order(pair1, buy_order_id)
 
         # Учитываем комиссию после покупки
         qty_after_buy_fee = math.floor((qty * (1 - fee)) * 100) / 100
 
-        # Шаг 2: Продажа за USDC
+        # Шаг 2: Продажа монеты за USDC
         sell_order_id = place_order(pair2, 'Sell', qty_after_buy_fee, sell_price, "Limit")
         wait_for_order(pair2, sell_order_id)
 
-        # Учитываем комиссию после продажи
+        # Округление до сотых
         usdc_balance = math.floor(qty_after_buy_fee * sell_price * 100) / 100
 
         # Шаг 3: Продажа USDC за USDT
@@ -278,20 +279,21 @@ def execute_arbitrage(opportunity):
 
     elif direction == 'USDC -> USDT':
         # Шаг 1: Покупка USDC за USDT
+        qty = math.floor((qty_usdt / usdc_to_usdt_sell_price) * 100) / 100
         buy_usdc_order_id = place_order('USDCUSDT', 'Buy', qty, usdc_to_usdt_sell_price, "Limit")
         wait_for_order('USDCUSDT', buy_usdc_order_id)
 
-        # Учитываем комиссию после покупки
+        # Округление до сотых
         usdc_balance = math.floor(qty * 100) / 100
 
-        # Шаг 2: Покупка пары2 за USDC
+        # Шаг 2: Покупка моенты за USDC
         buy_order_id = place_order(pair2, 'Buy', usdc_balance, buy_price, "Limit")
         wait_for_order(pair2, buy_order_id)
 
-        # Учитываем комиссию после покупки
-        qty_after_buy_fee = math.floor(usdc_balance / buy_price  * 100) / 100
+        # Округление до сотых
+        qty_after_buy_fee = math.floor(usdc_balance / buy_price * 100) / 100
 
-        # Шаг 3: Продажа пары2 за USDT
+        # Шаг 3: Продажа монеты за USDT
         sell_order_id = place_order(pair1, 'Sell', qty_after_buy_fee, sell_price, "Limit")
         wait_for_order(pair1, sell_order_id)
 
