@@ -64,15 +64,16 @@ PAIRS = [
 ]
 
 
-async def fetch_ticker_info(session, pair):
+async def fetch_ticker_info(session, pair, limit=3):
     try:
-        data = session.get_orderbook(symbol=pair, category="spot")
+        data = session.get_orderbook(symbol=pair, category="spot", limit=limit)
         if 'result' in data and len(data['result']) > 0:
-            ticker_info = data['result']
+            bids = [(float(level[0]), float(level[1])) for level in data['result']['b']]
+            asks = [(float(level[0]), float(level[1])) for level in data['result']['a']]
             return {
                 'symbol': pair,
-                'bid_price': float(ticker_info['b'][0][0]),
-                'ask_price': float(ticker_info['a'][0][0])
+                'bids': bids,
+                'asks': asks
             }
         else:
             logger.error(f"Error: No data in response for pair {pair}")
@@ -90,76 +91,122 @@ async def fetch_all_tickers_info(pairs, session):
 
 def calculate_arbitrage_opportunities(prices, fee=0.001):
     start_time = time.time()
-    logger.info("started to calc oppotunities")
+    logger.info("started to calc opportunities")
     opportunities = []
     if 'USDCUSDT' in prices:
-        usdc_to_usdt_sell_price = prices['USDCUSDT']['bid_price']
-        usdt_to_usdc_buy_price = prices['USDCUSDT']['ask_price']
+        usdc_to_usdt_bids = prices['USDCUSDT']['bids']
+        usdt_to_usdc_asks = prices['USDCUSDT']['asks']
+
         for pair1, pair2 in PAIRS:
             if pair1 in prices and pair2 in prices:
-                buy_price_usdt = prices[pair1]['ask_price']
-                sell_price_usdc = prices[pair2]['bid_price']
+                usdt_asks = prices[pair1]['asks']
+                usdc_bids = prices[pair2]['bids']
 
                 # Расчет для направления USDT -> USDC
-                if buy_price_usdt and sell_price_usdc and usdc_to_usdt_sell_price:
-                    # Количество монет, которые мы можем купить на 100 USDT с учетом комиссии и округлением вниз
-                    qty_after_buy_fee = (100 / buy_price_usdt) * (1 - fee)
-                    qty_after_buy_fee = math.floor(qty_after_buy_fee * 100) / 100  # Округление вниз до сотых
+                if usdt_asks and usdc_bids and usdc_to_usdt_bids:
+                    qty_usdt = 100
+                    qty_usdc = 0
+                    total_usdt_used = 0
 
-                    # Количество USDC после продажи c округлением вниз
-                    usdc_after_sell_fee = qty_after_buy_fee * sell_price_usdc
-                    usdc_after_sell_fee = math.floor(usdc_after_sell_fee * 100) / 100  # Округление вниз до сотых
+                    for ask_price, ask_volume in usdt_asks:
+                        if qty_usdt <= 0:
+                            break
+                        trade_volume = min(qty_usdt / ask_price, ask_volume)
+                        total_usdt_used += trade_volume * ask_price * (1 + fee)
+                        qty_usdt -= trade_volume * ask_price
+                        qty_usdc += trade_volume
 
-                    # Конвертация USDC обратно в USDT без учета комиссии
-                    final_usdt = usdc_after_sell_fee * usdc_to_usdt_sell_price
+                    if qty_usdt > 0:
+                        continue
 
-                    if final_usdt > 100:
-                        profit = final_usdt - 100
+                    qty_usdc = math.floor(qty_usdc * 100) / 100
+                    qty_after_sell = 0
+
+                    for bid_price, bid_volume in usdc_bids:
+                        if qty_usdc <= 0:
+                            break
+                        trade_volume = min(qty_usdc, bid_volume)
+                        qty_after_sell += trade_volume * bid_price
+                        qty_usdc -= trade_volume
+
+                    if qty_usdc > 0:
+                        continue
+
+                    qty_after_sell = math.floor(qty_after_sell * 100) / 100
+                    final_usdt = 0
+
+                    for bid_price, bid_volume in usdc_to_usdt_bids:
+                        if qty_after_sell <= 0:
+                            break
+                        trade_volume = min(qty_after_sell, bid_volume)
+                        final_usdt += trade_volume * bid_price
+                        qty_after_sell -= trade_volume
+
+                    if final_usdt > total_usdt_used:
+                        profit = final_usdt - total_usdt_used
                         opportunities.append({
                             'date': str(datetime.now()),
                             'pair1': pair1,
                             'pair2': pair2,
                             'direction': 'USDT -> USDC',
-                            'buy_price': buy_price_usdt,
-                            'sell_price': sell_price_usdc,
-                            'usdc_to_usdt_sell_price': usdc_to_usdt_sell_price,
-                            'qty_after_buy_fee': qty_after_buy_fee,
-                            'usdc_after_sell_fee': usdc_after_sell_fee,
                             'final_usdt': final_usdt,
                             'profit': profit
                         })
 
                 # Расчет для направления USDC -> USDT
-                buy_price_usdc = prices[pair2]['ask_price']
-                sell_price_usdt = prices[pair1]['bid_price']
+                usdc_asks = prices[pair2]['asks']
+                usdt_bids = prices[pair1]['bids']
 
-                if buy_price_usdc and sell_price_usdt and usdt_to_usdc_buy_price:
-                    # Количество монет, которые мы можем купить на 100 USDC с учетом комиссии и округлением вниз
-                    qty_after_buy_fee = (100 / buy_price_usdc)
-                    qty_after_buy_fee = math.floor(qty_after_buy_fee * 100) / 100  # Округление вниз до сотых
+                if usdc_asks and usdt_bids and usdt_to_usdc_asks:
+                    qty_usdc = 100
+                    qty_usdt = 0
+                    total_usdc_used = 0
 
-                    # Количество USDT после продажи с вычетом комиссии и округлением вниз
-                    usdt_after_sell_fee = (qty_after_buy_fee * sell_price_usdt) * (1 - fee)
-                    usdt_after_sell_fee = math.floor(usdt_after_sell_fee * 100) / 100  # Округление вниз до сотых
+                    for ask_price, ask_volume in usdc_asks:
+                        if qty_usdc <= 0:
+                            break
+                        trade_volume = min(qty_usdc / ask_price, ask_volume)
+                        total_usdc_used += trade_volume * ask_price
+                        qty_usdc -= trade_volume * ask_price
+                        qty_usdt += trade_volume
 
-                    # Конвертация USDT обратно в USDC (без комиссии на конвертацию USDCUSDT)
-                    final_usdc = usdt_after_sell_fee / usdt_to_usdc_buy_price
+                    if qty_usdc > 0:
+                        continue
 
-                    if final_usdc > 100:
-                        profit = final_usdc - 100
+                    qty_usdt = math.floor(qty_usdt * 100) / 100
+                    qty_after_sell = 0
+
+                    for bid_price, bid_volume in usdt_bids:
+                        if qty_usdt <= 0:
+                            break
+                        trade_volume = min(qty_usdt, bid_volume)
+                        qty_after_sell += trade_volume * bid_price * (1 - fee)
+                        qty_usdt -= trade_volume
+
+                    if qty_usdt > 0:
+                        continue
+
+                    qty_after_sell = math.floor(qty_after_sell * 100) / 100
+                    final_usdc = 0
+
+                    for ask_price, ask_volume in usdt_to_usdc_asks:
+                        if qty_after_sell <= 0:
+                            break
+                        trade_volume = min(qty_after_sell, ask_volume)
+                        final_usdc += trade_volume / ask_price
+                        qty_after_sell -= trade_volume
+
+                    if final_usdc > total_usdc_used:
+                        profit = final_usdc - total_usdc_used
                         opportunities.append({
                             'date': str(datetime.now()),
                             'pair1': pair2,
                             'pair2': pair1,
                             'direction': 'USDC -> USDT',
-                            'buy_price': buy_price_usdc,
-                            'sell_price': sell_price_usdt,
-                            'usdt_to_usdc_buy_price': usdt_to_usdc_buy_price,
-                            'qty_after_buy_fee': qty_after_buy_fee,
-                            'usdt_after_sell_fee': usdt_after_sell_fee,
                             'final_usdc': final_usdc,
                             'profit': profit
                         })
+
     end_time = time.time()
     logger.info(f"Time taken for calculating: {end_time - start_time} seconds")
     return opportunities
