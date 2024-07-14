@@ -105,8 +105,9 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                 # Расчет для направления USDT -> USDC
                 if usdt_asks and usdc_bids and usdc_to_usdt_bids:
                     qty_usdt = 100
-                    qty_usdc = 0
                     total_usdt_used = 0
+                    qty_usdc = 0
+                    buy_orders_usdt = []
 
                     for ask_price, ask_volume in usdt_asks:
                         if qty_usdt <= 0:
@@ -115,13 +116,14 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         total_usdt_used += trade_volume * ask_price * (1 + fee)
                         qty_usdt -= trade_volume * ask_price
                         qty_usdc += trade_volume
+                        buy_orders_usdt.append((ask_price, trade_volume))
 
-                    # Проверка на неполное использование USDT
                     if total_usdt_used < 100:
-                        qty_usdt += (100 - total_usdt_used)  # Вернем неиспользованные USDT
+                        continue
 
                     qty_usdc = math.floor(qty_usdc * 100) / 100
                     qty_after_sell = 0
+                    sell_orders_usdc = []
 
                     for bid_price, bid_volume in usdc_bids:
                         if qty_usdc <= 0:
@@ -129,9 +131,11 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdc, bid_volume)
                         qty_after_sell += trade_volume * bid_price
                         qty_usdc -= trade_volume
+                        sell_orders_usdc.append((bid_price, trade_volume))
 
                     qty_after_sell = math.floor(qty_after_sell * 100) / 100
                     final_usdt = 0
+                    sell_orders_usdc_to_usdt = []
 
                     for bid_price, bid_volume in usdc_to_usdt_bids:
                         if qty_after_sell <= 0:
@@ -139,6 +143,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_after_sell, bid_volume)
                         final_usdt += trade_volume * bid_price
                         qty_after_sell -= trade_volume
+                        sell_orders_usdc_to_usdt.append((bid_price, trade_volume))
 
                     if final_usdt > total_usdt_used:
                         profit = final_usdt - total_usdt_used
@@ -147,6 +152,9 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                             'pair1': pair1,
                             'pair2': pair2,
                             'direction': 'USDT -> USDC',
+                            'buy_orders_usdt': buy_orders_usdt,
+                            'sell_orders_usdc': sell_orders_usdc,
+                            'sell_orders_usdc_to_usdt': sell_orders_usdc_to_usdt,
                             'final_usdt': final_usdt,
                             'profit': profit
                         })
@@ -157,8 +165,9 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
 
                 if usdc_asks and usdt_bids and usdt_to_usdc_asks:
                     qty_usdt = 100
-                    qty_usdc = 0
                     total_usdt_used = qty_usdt
+                    qty_usdc = 0
+                    buy_orders_usdc = []
 
                     for ask_price, ask_volume in usdt_to_usdc_asks:
                         if qty_usdt <= 0:
@@ -166,13 +175,14 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdt / ask_price, ask_volume)
                         qty_usdt -= trade_volume * ask_price
                         qty_usdc += trade_volume
+                        buy_orders_usdc.append((ask_price, trade_volume))
 
-                    # Проверка на неполное использование USDT
                     if total_usdt_used < 100:
-                        qty_usdt += (100 - total_usdt_used)  # Вернем неиспользованные USDT
+                        continue
 
                     qty_usdc = math.floor(qty_usdc * 100) / 100
                     qty_after_sell = 0
+                    sell_orders_usdt = []
 
                     for ask_price, ask_volume in usdc_asks:
                         if qty_usdc <= 0:
@@ -180,9 +190,11 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdc / ask_price, ask_volume)
                         qty_usdc -= trade_volume * ask_price
                         qty_after_sell += trade_volume
+                        sell_orders_usdt.append((ask_price, trade_volume))
 
                     qty_after_sell = math.floor(qty_after_sell * 100) / 100
                     final_usdt = 0
+                    sell_orders_usdt_after_buy = []
 
                     for bid_price, bid_volume in usdt_bids:
                         if qty_after_sell <= 0:
@@ -190,6 +202,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_after_sell, bid_volume)
                         final_usdt += trade_volume * bid_price * (1 - fee)
                         qty_after_sell -= trade_volume
+                        sell_orders_usdt_after_buy.append((bid_price, trade_volume))
 
                     if final_usdt > total_usdt_used:
                         profit = final_usdt - total_usdt_used
@@ -198,6 +211,9 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                             'pair1': pair2,
                             'pair2': pair1,
                             'direction': 'USDC -> USDT',
+                            'buy_orders_usdc': buy_orders_usdc,
+                            'sell_orders_usdt': sell_orders_usdt,
+                            'sell_orders_usdt_after_buy': sell_orders_usdt_after_buy,
                             'final_usdt': final_usdt,
                             'profit': profit
                         })
@@ -293,52 +309,77 @@ def execute_arbitrage(opportunity):
     pair1 = opportunity['pair1']
     pair2 = opportunity['pair2']
     direction = opportunity['direction']
-    buy_price = opportunity['buy_price']
-    sell_price = opportunity['sell_price']
-    usdc_to_usdt_sell_price = opportunity.get('usdc_to_usdt_sell_price', 1)
-    qty_usdt = 100  # Количество для покупки на 100 USDT
     fee = 0.001
 
     if direction == 'USDT -> USDC':
-        # Шаг 1: Покупка моенты за USDT
-        qty = math.floor((qty_usdt / buy_price) * 100) / 100
-        buy_order_id = place_order(pair1, 'Buy', qty, buy_price, "Limit")
-        wait_for_order(pair1, buy_order_id)
+        buy_orders_usdt = opportunity['buy_orders_usdt']
+        sell_orders_usdc = opportunity['sell_orders_usdc']
+        sell_orders_usdc_to_usdt = opportunity['sell_orders_usdc_to_usdt']
 
-        # Учитываем комиссию после покупки
-        qty_after_buy_fee = math.floor((qty * (1 - fee)) * 100) / 100
+        # Шаг 1: Покупка монеты за USDT
+        buy_order_ids = []
+        for price, volume in buy_orders_usdt:
+            buy_order_id = place_order(pair1, 'Buy', volume, price, "Limit")
+            buy_order_ids.append(buy_order_id)
+
+        # Ожидание выполнения всех ордеров
+        for buy_order_id in buy_order_ids:
+            wait_for_order(pair1, buy_order_id)
 
         # Шаг 2: Продажа монеты за USDC
-        sell_order_id = place_order(pair2, 'Sell', qty_after_buy_fee, sell_price, "Limit")
-        wait_for_order(pair2, sell_order_id)
+        sell_order_ids = []
+        for price, volume in sell_orders_usdc:
+            sell_order_id = place_order(pair2, 'Sell', volume, price, "Limit")
+            sell_order_ids.append(sell_order_id)
 
-        # Округление до сотых
-        usdc_balance = math.floor(qty_after_buy_fee * sell_price * 100) / 100
+        # Ожидание выполнения всех ордеров
+        for sell_order_id in sell_order_ids:
+            wait_for_order(pair2, sell_order_id)
 
         # Шаг 3: Продажа USDC за USDT
-        if usdc_balance > 0:
-            sell_usdc_order_id = place_order('USDCUSDT', 'Sell', usdc_balance, usdc_to_usdt_sell_price, "Limit")
+        sell_usdc_order_ids = []
+        for price, volume in sell_orders_usdc_to_usdt:
+            sell_usdc_order_id = place_order('USDCUSDT', 'Sell', volume, price, "Limit")
+            sell_usdc_order_ids.append(sell_usdc_order_id)
+
+        # Ожидание выполнения всех ордеров
+        for sell_usdc_order_id in sell_usdc_order_ids:
             wait_for_order('USDCUSDT', sell_usdc_order_id)
 
     elif direction == 'USDC -> USDT':
+        buy_orders_usdc = opportunity['buy_orders_usdc']
+        sell_orders_usdt = opportunity['sell_orders_usdt']
+        sell_orders_usdt_after_buy = opportunity['sell_orders_usdt_after_buy']
+
         # Шаг 1: Покупка USDC за USDT
-        qty = math.floor((qty_usdt / usdc_to_usdt_sell_price) * 100) / 100
-        buy_usdc_order_id = place_order('USDCUSDT', 'Buy', qty, usdc_to_usdt_sell_price, "Limit")
-        wait_for_order('USDCUSDT', buy_usdc_order_id)
+        buy_usdc_order_ids = []
+        for price, volume in buy_orders_usdc:
+            buy_usdc_order_id = place_order('USDCUSDT', 'Buy', volume, price, "Limit")
+            buy_usdc_order_ids.append(buy_usdc_order_id)
 
-        # Округление до сотых
-        usdc_balance = math.floor(qty * 100) / 100
+        # Ожидание выполнения всех ордеров
+        for buy_usdc_order_id in buy_usdc_order_ids:
+            wait_for_order('USDCUSDT', buy_usdc_order_id)
 
-        # Шаг 2: Покупка моенты за USDC
-        buy_order_id = place_order(pair2, 'Buy', usdc_balance, buy_price, "Limit")
-        wait_for_order(pair2, buy_order_id)
+        # Шаг 2: Покупка монеты за USDC
+        buy_order_ids = []
+        for price, volume in sell_orders_usdt:
+            buy_order_id = place_order(pair2, 'Buy', volume, price, "Limit")
+            buy_order_ids.append(buy_order_id)
 
-        # Округление до сотых
-        qty_after_buy_fee = math.floor(usdc_balance / buy_price * 100) / 100
+        # Ожидание выполнения всех ордеров
+        for buy_order_id in buy_order_ids:
+            wait_for_order(pair2, buy_order_id)
 
         # Шаг 3: Продажа монеты за USDT
-        sell_order_id = place_order(pair1, 'Sell', qty_after_buy_fee, sell_price, "Limit")
-        wait_for_order(pair1, sell_order_id)
+        sell_order_ids = []
+        for price, volume in sell_orders_usdt_after_buy:
+            sell_order_id = place_order(pair1, 'Sell', volume, price, "Limit")
+            sell_order_ids.append(sell_order_id)
+
+        # Ожидание выполнения всех ордеров
+        for sell_order_id in sell_order_ids:
+            wait_for_order(pair1, sell_order_id)
 
 
 async def main():
