@@ -146,7 +146,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         sell_orders_usdc_to_usdt.append((bid_price, trade_volume))
 
                     if final_usdt > total_usdt_used:
-                        profit = final_usdt - total_usdt_used
+                        profit = math.floor((final_usdt - total_usdt_used) * 1000) / 1000
                         opportunities.append({
                             'date': str(datetime.now()),
                             'pair1': pair1,
@@ -205,7 +205,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         sell_orders_usdt_after_buy.append((bid_price, trade_volume))
 
                     if final_usdt > total_usdt_used:
-                        profit = final_usdt - total_usdt_used
+                        profit = math.floor((final_usdt - total_usdt_used) * 1000) / 1000
                         opportunities.append({
                             'date': str(datetime.now()),
                             'pair1': pair2,
