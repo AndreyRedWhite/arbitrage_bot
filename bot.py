@@ -116,7 +116,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         total_usdt_used += trade_volume * ask_price * (1 + fee)
                         qty_usdt -= trade_volume * ask_price
                         qty_usdc += trade_volume
-                        buy_orders_usdt.append((ask_price, trade_volume))
+                        buy_orders_usdt.append((ask_price, math.floor(trade_volume * 100) / 100))
 
                     if total_usdt_used < 100:
                         continue
@@ -131,7 +131,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdc, bid_volume)
                         qty_after_sell += trade_volume * bid_price
                         qty_usdc -= trade_volume
-                        sell_orders_usdc.append((bid_price, trade_volume))
+                        sell_orders_usdc.append((bid_price, math.floor(trade_volume * 100) / 100))
 
                     qty_after_sell = math.floor(qty_after_sell * 100) / 100
                     final_usdt = 0
@@ -143,9 +143,10 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_after_sell, bid_volume)
                         final_usdt += trade_volume * bid_price
                         qty_after_sell -= trade_volume
-                        sell_orders_usdc_to_usdt.append((bid_price, trade_volume))
+                        sell_orders_usdc_to_usdt.append((bid_price, math.floor(trade_volume * 100) / 100))
 
                     if final_usdt > total_usdt_used:
+                        final_usdt = math.floor(final_usdt * 1000) / 1000
                         profit = math.floor((final_usdt - total_usdt_used) * 1000) / 1000
                         opportunities.append({
                             'date': str(datetime.now()),
@@ -175,7 +176,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdt / ask_price, ask_volume)
                         qty_usdt -= trade_volume * ask_price
                         qty_usdc += trade_volume
-                        buy_orders_usdc.append((ask_price, trade_volume))
+                        buy_orders_usdc.append((ask_price, math.floor(trade_volume * 100) / 100))
 
                     if total_usdt_used < 100:
                         continue
@@ -190,7 +191,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdc / ask_price, ask_volume)
                         qty_usdc -= trade_volume * ask_price
                         qty_after_sell += trade_volume
-                        sell_orders_usdt.append((ask_price, trade_volume))
+                        sell_orders_usdt.append((ask_price, math.floor(trade_volume * 100) / 100))
 
                     qty_after_sell = math.floor(qty_after_sell * 100) / 100
                     final_usdt = 0
@@ -202,9 +203,10 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_after_sell, bid_volume)
                         final_usdt += trade_volume * bid_price * (1 - fee)
                         qty_after_sell -= trade_volume
-                        sell_orders_usdt_after_buy.append((bid_price, trade_volume))
+                        sell_orders_usdt_after_buy.append((bid_price, math.floor(trade_volume * 100) / 100))
 
                     if final_usdt > total_usdt_used:
+                        final_usdt = math.floor(final_usdt * 1000) / 1000
                         profit = math.floor((final_usdt - total_usdt_used) * 1000) / 1000
                         opportunities.append({
                             'date': str(datetime.now()),
