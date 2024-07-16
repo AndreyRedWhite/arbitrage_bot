@@ -183,31 +183,30 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         qty_usdc += trade_volume
                         buy_orders_usdt_to_usdc.append((ask_price, math.floor(trade_volume * 100) / 100))
 
-                    if total_usdt_used < 100:
+                    if qty_usdc == 0:
                         continue
 
                     qty_usdc = math.floor(qty_usdc * 100) / 100
-                    qty_after_buy = 0
+                    qty_after_sell = qty_usdc
                     buy_orders_usdc = []
 
                     for ask_price, ask_volume in usdc_asks:
-                        if qty_usdc <= 0:
+                        if qty_after_sell <= 0:
                             break
-                        trade_volume = min(qty_usdc, ask_volume)
-                        qty_usdc -= trade_volume * ask_price
-                        qty_after_buy += trade_volume
+                        trade_volume = min(qty_after_sell / ask_price, ask_volume)
+                        qty_after_sell -= trade_volume * ask_price
                         buy_orders_usdc.append((ask_price, math.floor(trade_volume * 100) / 100))
 
-                    qty_after_buy = math.floor(qty_after_buy * 100) / 100
+                    qty_after_sell = math.floor(qty_after_sell * 100) / 100
                     final_usdt = 0
                     sell_orders_usdt = []
 
                     for bid_price, bid_volume in usdt_bids:
-                        if qty_after_buy <= 0:
+                        if qty_after_sell <= 0:
                             break
-                        trade_volume = min(qty_after_buy, bid_volume)
+                        trade_volume = min(qty_after_sell, bid_volume)
                         final_usdt += trade_volume * bid_price * (1 - fee)
-                        qty_after_buy -= trade_volume
+                        qty_after_sell -= trade_volume
                         sell_orders_usdt.append((bid_price, math.floor(trade_volume * 100) / 100))
 
                     if final_usdt > total_usdt_used:
@@ -368,27 +367,35 @@ def execute_arbitrage(opportunity):
         for buy_usdc_order_id in buy_usdc_order_ids:
             wait_for_order('USDCUSDT', buy_usdc_order_id)
 
-        # Обновление баланса USDC после покупки
+        # Проверяем баланс USDC после покупки
         usdc_balance = get_balance('USDC')
-        if usdc_balance < sum([order[1] for order in buy_orders_usdc]):
-            logger.error("USDC balance is insufficient after purchase. Stopping the bot.")
-            return
 
         # Шаг 2: Покупка монеты за USDC
         buy_order_ids = []
         for price, volume in buy_orders_usdc:
-            buy_order_id = place_order(pair1, 'Buy', volume, price, "Limit")  # покупаем монету за USDC
+            if usdc_balance <= 0:
+                break
+            trade_volume = min(usdc_balance / price, volume)
+            buy_order_id = place_order(pair1, 'Buy', trade_volume, price, "Limit")
             buy_order_ids.append(buy_order_id)
+            usdc_balance -= trade_volume * price
 
         # Ожидание выполнения всех ордеров
         for buy_order_id in buy_order_ids:
             wait_for_order(pair1, buy_order_id)
 
+        # Проверяем баланс монеты после покупки
+        coin_balance = get_balance(pair1[:-4])
+
         # Шаг 3: Продажа монеты за USDT
         sell_order_ids = []
         for price, volume in sell_orders_usdt:
-            sell_order_id = place_order(pair2, 'Sell', volume, price, "Limit")  # продаем монету за USDT
+            if coin_balance <= 0:
+                break
+            trade_volume = min(coin_balance, volume)
+            sell_order_id = place_order(pair2, 'Sell', trade_volume, price, "Limit")
             sell_order_ids.append(sell_order_id)
+            coin_balance -= trade_volume
 
         # Ожидание выполнения всех ордеров
         for sell_order_id in sell_order_ids:
