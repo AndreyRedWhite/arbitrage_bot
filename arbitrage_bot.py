@@ -11,7 +11,12 @@ load_dotenv()
 
 # Получение API-ключа из переменной окружения
 BYBIT_API_KEY = os.getenv('BYBIT_API_KEY')
-BYBIT_API_SECRET = os.getenv('BYBIT_SECRET_KEY')
+BYBIT_API_SECRET = os.getenv('BYBIT_API_SECRET')
+
+# Проверка, что ключи были загружены корректно
+if not BYBIT_API_KEY or not BYBIT_API_SECRET:
+    raise ValueError("API keys not found. Please check your .env file.")
+
 
 # Настройка сессии pybit
 session = HTTP(
