@@ -1,80 +1,69 @@
 import asyncio
-import logging
-import os
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from aiogram.filters.command import Command
+
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.filters import CommandStart
+
 from dotenv import load_dotenv
-import requests
+import os
+
+import logging
+
+from health_checker import check_status, get_last_n_log, get_oppotunities
 
 load_dotenv()
 
-# Получение токена Telegram бота из переменной окружения
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-# CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-# Создание экземпляров бота и диспетчера
+logging.basicConfig(level=logging.INFO)
+
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
+
 dp = Dispatcher()
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Создание кнопок
-status_button = KeyboardButton(text='Статус')
-opportunities_button = KeyboardButton(text='Найденные возможности')
-
-kb = [[status_button, opportunities_button]]
-
-# Создание клавиатуры
-keyboard = ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+# Inline клавиатура
+kb = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Статус", callback_data="check")],
+    [InlineKeyboardButton(text="Возможности", callback_data="oppotunities")],
+    [InlineKeyboardButton(text="Лог", callback_data="logs")]
+])
 
 
-@dp.message(Command('start'))
-async def send_welcome(message: types.Message):
-    await message.answer("Добро пожаловать! Выберите действие:", reply_markup=keyboard)
+@dp.message(CommandStart())
+async def cmd_start(message: Message):
+    text = "Привет {}! Это телеграм-бот для отслеживания арбитражного бота на bybit"
+    await message.answer(text.format(message.from_user.first_name), reply_markup=kb)
 
 
-@dp.message(Command('Статус'))
-async def check_status(message: types.Message):
-    try:
-        with open('logs/arbitrage_bot.log', 'r') as log_file:
-            lines = log_file.readlines()
-            # Берем последние 5 строк логов
-            last_logs = lines[-5:]
-            last_logs_str = "\n".join(last_logs)
-            await message.answer(f"Последние лог-события:\n{last_logs_str}")
-    except Exception as e:
-        await message.answer(f"Ошибка при чтении логов: {e}")
+@dp.message(F.text == "команды")
+async def cmd_set(message: Message):
+    await message.answer("Список возможностей бота", reply_markup=kb)
 
 
-@dp.message(Command('Найденные возможности'))
-async def get_opportunities(message: types.Message):
-    try:
-        with open('arbitrage_opportunities.txt', 'r') as opp_file:
-            opportunities = opp_file.read()
-            await message.answer(f"Найденные арбитражные возможности:\n{opportunities}")
-    except Exception as e:
-        await message.answer(f"Ошибка при чтении файла с возможностями: {e}")
+@dp.callback_query(F.data == "check")
+async def handle_status(callback: CallbackQuery):
+    status = check_status()
+    await callback.message.answer(f"Статус бота: {'Запущен' if status else 'Остановлен'}")
+    await callback.answer()
 
 
-def send_telegram_message(message):
-    bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    chat_id = os.getenv('TELEGRAM_CHAT_ID')
-    send_text = f'https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={chat_id}&text={message}'
-    response = requests.get(send_text)
-    return response.json()
+@dp.callback_query(F.data == "oppotunities")
+async def handle_opportunities(callback: CallbackQuery):
+    opportunities = get_oppotunities()
+    await callback.message.answer(f"Последние возможности арбитража:\n{opportunities}")
+    await callback.answer()
 
-async def on_startup():
-    await send_telegram_message("Бот запущен и готов к работе!")
 
-async def on_shutdown():
-    await send_telegram_message("Бот отключен.")
+@dp.callback_query(F.data == "logs")
+async def handle_log(callback: CallbackQuery):
+    log = get_last_n_log(1, date_only=False)
+    await callback.message.answer(f"Последние строки лога:\n{log}")
+    await callback.answer()
 
 
 async def main():
-    await dp.start_polling(bot, skip_updates=True)
+    await dp.start_polling(bot)
+
+
 if __name__ == '__main__':
     asyncio.run(main())
-
