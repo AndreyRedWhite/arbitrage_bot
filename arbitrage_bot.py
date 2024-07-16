@@ -183,7 +183,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         qty_usdc += trade_volume
                         buy_orders_usdt_to_usdc.append((ask_price, math.floor(trade_volume * 100) / 100))
 
-                    if qty_usdt > 0:
+                    if total_usdt_used < 100:
                         continue
 
                     qty_usdc = math.floor(qty_usdc * 100) / 100
@@ -193,7 +193,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                     for ask_price, ask_volume in usdc_asks:
                         if qty_usdc <= 0:
                             break
-                        trade_volume = min(qty_usdc / ask_price, ask_volume)
+                        trade_volume = min(qty_usdc, ask_volume)
                         qty_usdc -= trade_volume * ask_price
                         qty_after_buy += trade_volume
                         buy_orders_usdc.append((ask_price, math.floor(trade_volume * 100) / 100))
@@ -377,7 +377,7 @@ def execute_arbitrage(opportunity):
         # Шаг 2: Покупка монеты за USDC
         buy_order_ids = []
         for price, volume in buy_orders_usdc:
-            buy_order_id = place_order(pair1, 'Buy', volume, price, "Limit")  # покупаем монету за USDC, а не за USDT
+            buy_order_id = place_order(pair1, 'Buy', volume, price, "Limit")  # покупаем монету за USDC
             buy_order_ids.append(buy_order_id)
 
         # Ожидание выполнения всех ордеров
