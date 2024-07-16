@@ -309,9 +309,9 @@ def execute_arbitrage(opportunity):
     """
     # Проверяем баланс USDT перед началом арбитража
     usdt_balance = get_balance('USDT')
-    if usdt_balance < 70:
-        logger.error("USDT balance is below 70. Stopping the bot.")
-        exit()
+    if usdt_balance < 100:
+        logger.error("USDT balance is below 100. Stopping the bot.")
+        return
 
     pair1 = opportunity['pair1']
     pair2 = opportunity['pair2']
@@ -368,25 +368,31 @@ def execute_arbitrage(opportunity):
         for buy_usdc_order_id in buy_usdc_order_ids:
             wait_for_order('USDCUSDT', buy_usdc_order_id)
 
+        # Обновление баланса USDC после покупки
+        usdc_balance = get_balance('USDC')
+        if usdc_balance < sum([order[1] for order in buy_orders_usdc]):
+            logger.error("USDC balance is insufficient after purchase. Stopping the bot.")
+            return
+
         # Шаг 2: Покупка монеты за USDC
         buy_order_ids = []
         for price, volume in buy_orders_usdc:
-            buy_order_id = place_order(pair2, 'Buy', volume, price, "Limit")
+            buy_order_id = place_order(pair1, 'Buy', volume, price, "Limit")  # покупаем монету за USDC, а не за USDT
             buy_order_ids.append(buy_order_id)
 
         # Ожидание выполнения всех ордеров
         for buy_order_id in buy_order_ids:
-            wait_for_order(pair2, buy_order_id)
+            wait_for_order(pair1, buy_order_id)
 
         # Шаг 3: Продажа монеты за USDT
         sell_order_ids = []
         for price, volume in sell_orders_usdt:
-            sell_order_id = place_order(pair1, 'Sell', volume, price, "Limit")
+            sell_order_id = place_order(pair2, 'Sell', volume, price, "Limit")  # продаем монету за USDT
             sell_order_ids.append(sell_order_id)
 
         # Ожидание выполнения всех ордеров
         for sell_order_id in sell_order_ids:
-            wait_for_order(pair1, sell_order_id)
+            wait_for_order(pair2, sell_order_id)
 
 
 async def main():
