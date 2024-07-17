@@ -66,7 +66,7 @@ def get_oppotunities(last_lines: int = False):
         if last_lines:
             lines = [line for line in opps[-1: last_lines]]
             return '\n'.join(lines)
-        return result.stdout.strip()
+        return opps[-1]
     except Exception as e:
         logging.error(f"An error occured. Here is it:\n{e} ")
         return ""
