@@ -87,9 +87,9 @@ def format_opportunity(opportunity_str: str) -> str:
         opportunity_dict = eval(opportunity_str.split("! ")[-1])
 
         # Форматирование строки
-        formatted_str = "Arbitrage Opportunity Found:\n"
+        formatted_str = "*Arbitrage Opportunity Found:*\n"
         for key, value in opportunity_dict.items():
-            formatted_str += f"**{key.capitalize()}**: {value}\n"
+            formatted_str += f"*{key.capitalize()}*: `{value}`\n"
         return formatted_str
     except Exception as e:
         logging.error(f"Error formatting opportunity: {e}")
