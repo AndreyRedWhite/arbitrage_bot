@@ -50,7 +50,7 @@ async def handle_status(callback: CallbackQuery):
 @dp.callback_query(F.data == "oppotunities")
 async def handle_opportunities(callback: CallbackQuery):
     opportunities = get_oppotunities()
-    await callback.message.answer(f"Последние возможности арбитража:\n{opportunities}")
+    await callback.message.answer(f"Последние возможности арбитража:\n{opportunities}", parse_mode="Markdown")
     await callback.answer()
 
 

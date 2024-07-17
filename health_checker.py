@@ -51,25 +51,49 @@ def get_last_n_log(n: int, date_only: bool = False) -> str:
 
 def get_oppotunities(last_lines: int = False):
     """
-    Reads the file arbitrage_oppotunities.txt and returns its output
+    Reads the file arbitrage_opportunities.txt and returns its output
 
     Args:
     - last_lines(int): if set, returns only last n lines from the file
 
     :return:
-    - str: an output from the arbitrage_oppotinities.txt file
+    - str: an output from the arbitrage_opportunities.txt file
     """
 
     try:
         result = subprocess.run('cat arbitrage_opportunities.txt', shell=True, stdout=subprocess.PIPE, text=True)
         opps = result.stdout.strip().split('\n')
         if last_lines:
-            lines = [line for line in opps[-1: last_lines]]
-            return '\n'.join(lines)
-        return opps[-1]
+            lines = [line for line in opps[-last_lines:]]
+            return '\n'.join(format_opportunity(line) for line in lines)
+        return format_opportunity(opps[-1])
     except Exception as e:
-        logging.error(f"An error occured. Here is it:\n{e} ")
+        logging.error(f"An error occurred. Here it is:\n{e}")
         return ""
+
+
+def format_opportunity(opportunity_str: str) -> str:
+    """
+    Formats the opportunity string to a more readable format.
+
+    Args:
+    - opportunity_str (str): The opportunity string.
+
+    Returns:
+    - str: The formatted opportunity string.
+    """
+    try:
+        # Преобразование строки в словарь
+        opportunity_dict = eval(opportunity_str.split("! ")[-1])
+
+        # Форматирование строки
+        formatted_str = "Arbitrage Opportunity Found:\n"
+        for key, value in opportunity_dict.items():
+            formatted_str += f"**{key.capitalize()}**: {value}\n"
+        return formatted_str
+    except Exception as e:
+        logging.error(f"Error formatting opportunity: {e}")
+        return opportunity_str
 
 
 if __name__ == '__main__':
