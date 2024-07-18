@@ -6,8 +6,10 @@ from pybit.unified_trading import HTTP
 from datetime import datetime
 from dotenv import load_dotenv
 import math
+import requests
 
-load_dotenv()
+
+load_dotenv("settings/.env")
 
 # Получение API-ключа из переменной окружения
 BYBIT_API_KEY = os.getenv('BYBIT_API_KEY')
@@ -16,6 +18,24 @@ BYBIT_API_SECRET = os.getenv('BYBIT_API_SECRET')
 # Проверка, что ключи были загружены корректно
 if not BYBIT_API_KEY or not BYBIT_API_SECRET:
     raise ValueError("API keys not found. Please check your .env file.")
+
+
+# Получение chat_id из файла
+
+chat_id_file = "settings/chat_id"
+
+
+def get_chat_id():
+    try:
+        with open(chat_id_file, "r") as file:
+            chat_id = file.read().strip()
+            return chat_id
+    except Exception as e:
+        logging.error(f"Failed to read chat_id: {e}")
+        return None
+
+
+chat_id = get_chat_id()
 
 
 # Настройка сессии pybit
@@ -41,18 +61,6 @@ console_format = logging.Formatter('%(asctime)s - %(message)s')
 console_handler.setFormatter(console_format)
 logger.addHandler(console_handler)
 
-# PAIRS = [
-#     ('DOGEUSDT', 'DOGEUSDC'),
-#     ('MNTUSDT', 'MNTUSDC'),
-#     ('XRPUSDT', 'XRPUSDC'),
-#     ('APEXUSDT', 'APEXUSDC'),
-#     ('WLDUSDT', 'WLDUSDC'),
-#     ('ADAUSDT', 'ADAUSDC'),
-#     ('OPUSDT', 'OPUSDC'),
-#     ('LDOUSDT', 'LDOUSDC')
-# ]
-
-# added all cryptopairs
 
 PAIRS = [
     ('ADAUSDT', 'ADAUSDC'), ('APEUSDT', 'APEUSDC'), ('APEXUSDT', 'APEXUSDC'),
@@ -69,8 +77,29 @@ PAIRS = [
 ]
 
 
-def rounding(item: int | float, degree: int = 100) -> float:
+def rounding(item: float, degree: int = 100) -> float:
+    """
+    Функция для округления чисел в меньшую сторону. По дефолту округляет до сотых.
+    Нужна для корректного расчета баланса полученых монет (их не может быть больше как при арифметическом округлении)
+    :param item (float): число для округления
+    :param degree (int): степень округления
+    :return:
+    float - возвращает результат
+    """
     return math.floor(item * degree) / degree
+
+
+def send_telegram_message(message: str):
+    if chat_id:
+        telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
+        url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+        data = {
+            'chat_id': chat_id,
+            'text': message
+        }
+        requests.post(url, data=data)
+    else:
+        logging.error("chat_id is not set. Cannot send message.")  # Логирование ошибки, если chat_id не установлен
 
 
 async def fetch_ticker_info(session, pair, limit=3):
@@ -268,7 +297,10 @@ def place_order(symbol, side, qty, price, order_type, time_in_force="GTC"):
         time_in_force=time_in_force
     )
     order_id = order['result']['orderId']
-    print(f"{side} Order placed: {order_id} for {symbol} at {price}")
+    message = f"{side} Order placed: {order_id} for {symbol} at {price}"
+    send_telegram_message(message)
+    logger.info(message)
+
     return order_id
 
 
@@ -288,7 +320,9 @@ def wait_for_order(symbol, order_id):
         )['result']['list']
 
         if order_status and order_status[0]['orderStatus'] == 'Filled':
-            print(f"Order filled: {order_id}")
+            message = f"Order filled: {order_id}"
+            send_telegram_message(message)
+            logger.info(message)
             break
         else:
             print(f"Waiting for order {order_id} to be filled...")
@@ -305,7 +339,9 @@ def execute_arbitrage(opportunity):
     # Проверяем баланс USDT перед началом арбитража
     usdt_balance = get_balance('USDT')
     if usdt_balance < 100:
-        logger.error("USDT balance is below 100. Stopping the bot.")
+        message = "USDT balance is below 100. Stopping the bot."
+        send_telegram_message(message)
+        logger.error(message)
         return
 
     pair1 = opportunity['pair1']
@@ -400,19 +436,24 @@ def execute_arbitrage(opportunity):
 
 async def main():
     logger.info("Starting to calculate arbitrage opportunities")
-    while True:
-        pairs_to_fetch = [pair for pair1, pair2 in PAIRS for pair in [pair1, pair2]]
-        pairs_to_fetch.append('USDCUSDT')  # добавляем пару для конвертации USDC в USDT
-        prices = await fetch_all_tickers_info(pairs_to_fetch, session)
-        logger.info(f"Fetched prices: {prices}")
-        opportunities = calculate_arbitrage_opportunities(prices)
-        if opportunities:
-            logger.error(f"Arbitrage opportunities found: {opportunities}")
-            write_opportunities_to_file(opportunities)
-            for opportunity in opportunities:
-                execute_arbitrage(opportunity)
+    try:
+        while True:
+            pairs_to_fetch = [pair for pair1, pair2 in PAIRS for pair in [pair1, pair2]]
+            pairs_to_fetch.append('USDCUSDT')  # добавляем пару для конвертации USDC в USDT
+            prices = await fetch_all_tickers_info(pairs_to_fetch, session)
+            logger.info(f"Fetched prices: {prices}")
+            opportunities = calculate_arbitrage_opportunities(prices)
+            if opportunities:
+                logger.error(f"Arbitrage opportunities found: {opportunities}")
+                send_telegram_message(f"Arbitrage opportunities found: {opportunities}")
+                write_opportunities_to_file(opportunities)
+                for opportunity in opportunities:
+                    execute_arbitrage(opportunity)
 
-        await asyncio.sleep(1)
+            await asyncio.sleep(1)
+    except Exception as e:
+        send_telegram_message(f"Bot crashed with error: {e}")
+        logger.error(f"Bot crashed with error: {e}")
 
 
 if __name__ == '__main__':
