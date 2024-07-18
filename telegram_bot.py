@@ -1,13 +1,11 @@
 import asyncio
-
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from aiogram.filters import CommandStart
-
-from dotenv import load_dotenv
+import logging
 import os
 
-import logging
+from aiogram import Bot, Dispatcher, F
+from aiogram.filters import CommandStart, Command
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from dotenv import load_dotenv
 
 from health_checker import check_status, get_last_n_log, get_oppotunities
 
@@ -35,7 +33,7 @@ async def cmd_start(message: Message):
     await message.answer(text.format(message.from_user.first_name), reply_markup=kb)
 
 
-@dp.message(F.text == "команды")
+@dp.message(Command("cmd"))
 async def cmd_set(message: Message):
     await message.answer("Список возможностей бота", reply_markup=kb)
 
