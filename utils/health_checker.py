@@ -97,6 +97,6 @@ def format_opportunity(opportunity_str: str) -> str:
 
 
 if __name__ == '__main__':
-    # print(check_status())
-    # print(get_last_n_log(3, date_only=True))
+    print(check_status())
+    print(get_last_n_log(3, date_only=True))
     print(get_oppotunities(last_lines=2))
