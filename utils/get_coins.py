@@ -26,6 +26,7 @@ def filter_usdt_usdc_pairs(symbols):
     common_pairs = usdt_pairs.intersection(usdc_pairs)
     return common_pairs
 
+
 # Получение текущих цен для пары
 def get_current_price(symbol):
     url = f"{base_url}/v5/market/tickers?category=spot&symbol={symbol}"
@@ -34,6 +35,7 @@ def get_current_price(symbol):
     if 'result' in data and 'list' in data['result'] and len(data['result']['list']) > 0:
         return float(data['result']['list'][0]['lastPrice'])
     return None
+
 
 # Главная функция
 def main():
@@ -45,11 +47,15 @@ def main():
         filtered_pairs = []
         for pair in common_pairs:
             usdt_pair = f"{pair}USDT"
-            price = get_current_price(usdt_pair)
-            if price and price <= 10:
+            usdc_pair = f"{pair}USDC"
+
+            usdt_price = get_current_price(usdt_pair)
+            usdc_price = get_current_price(usdc_pair)
+
+            if usdt_price and usdc_price and 0.001 <= usdt_price <= 200 and 0.001 <= usdc_price <= 200:
                 filtered_pairs.append(pair)
 
-        print(f"Активы с парами вида {{монета}}USDT и {{монета}}USDC, цена которых не превышает 10$: {sorted(filtered_pairs)}")
+        print(f"Активы с парами вида {{монета}}USDT и {{монета}}USDC, цена которых находится в диапазоне от 0.001 до 200$: {sorted(filtered_pairs)}")
     else:
         print("Не удалось получить список торговых пар.")
 

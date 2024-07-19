@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from dotenv import load_dotenv
 
-from health_checker import check_status, get_last_n_log, get_oppotunities
+from utils.health_checker import *
 
 load_dotenv("settings/.env")
 
