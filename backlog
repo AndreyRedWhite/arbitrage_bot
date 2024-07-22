@@ -1,0 +1,27 @@
+лог событий и ошибок:
+
+2024-07-22 00:26:37,356 - Arbitrage opportunities found: [{'date': '2024-07-22 00:26:37.355301', 'pair1': 'DOGEUSDT', 'pair2':
+ 'DOGEUSDC', 'direction': 'USDT -> USDC', 'buy_orders_usdt': [(0.13848, 722.12)], 'sell_orders_usdc': [(0.13875, 720.2), (0.13874, 1.19)],
+ 'sell_orders_usdc_to_usdt': [(0.9997, 100.09)], 'final_usdt': 100.064, 'profit': 0.063}]
+
+2024-07-22 00:26:39,064 - Bot crashed with error: Order quantity has too many decimals. (ErrCode: 170137) (ErrTime: 21:26:38).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "spot", "symbol": "DOGEUSDT", "side": "Buy", "order_type":
+ "Limit", "qty": "722.12", "price": "0.13848", "time_in_force": "GTC"}.
+
+
+---------
+
+Лог арбитражного бота ByBit, [20.07.2024 23:38]
+Arbitrage opportunities found: [{'date': '2024-07-20 23:38:42.438096', 'pair1': 'APEXUSDT', 'pair2': 'APEXUSDC', 'direction': 'USDT -> USDC', 'buy_orders_usdt': [(2.3028, 43.42)], 'sell_orders_usdc': [(2.3083, 0.01), (2.3066, 43.37)], 'sell_orders_usdc_to_usdt': [(0.9994, 100.06)], 'final_usdt': 100.0, 'profit': 0.0}]
+
+Лог арбитражного бота ByBit, [20.07.2024 23:38]
+Buy Order placed: 1734528609819128064 for APEXUSDT at 2.3028
+
+Лог арбитражного бота ByBit, [20.07.2024 23:38]
+Order filled: 1734528609819128064
+
+Лог арбитражного бота ByBit, [20.07.2024 23:38]
+Bot crashed with error: Order quantity exceeded lower limit. (ErrCode: 170136) (ErrTime: 20:38:44).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "spot", "symbol": "APEXUSDC", "side": "Sell", "order_type": "Limit", "qty": "0.01", "price": "2.3083", "time_in_force": "GTC"}.
+
+

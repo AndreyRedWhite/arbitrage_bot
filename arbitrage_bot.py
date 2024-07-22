@@ -89,6 +89,10 @@ def rounding(item: float, degree: int = 100) -> float:
     return math.floor(item * degree) / degree
 
 
+def rounding_price(price, decimals=4):
+    return round(price, decimals)
+
+
 def send_telegram_message(message: str):
     if chat_id:
         telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -154,7 +158,8 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdt / ask_price, ask_volume)
                         qty_usdt -= trade_volume * ask_price
                         coins_buyed += rounding(trade_volume * (1 - fee))
-                        buy_orders_usdt.append((ask_price, rounding(trade_volume)))
+                        if rounding(trade_volume) > 0:
+                            buy_orders_usdt.append((rounding_price(ask_price), rounding(trade_volume)))
 
                     # Шаг 2 - продажа монет за USDC
                     sell_orders_usdc = []
@@ -163,9 +168,10 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         if coins_buyed <= 0:
                             break
                         trade_volume = min(coins_buyed, bid_volume)
-                        coins_buyed -= trade_volume
-                        qty_usdc += trade_volume * bid_price
-                        sell_orders_usdc.append((bid_price, rounding(trade_volume)))
+                        if rounding(trade_volume) > 0:
+                            coins_buyed -= trade_volume
+                            qty_usdc += trade_volume * bid_price
+                            sell_orders_usdc.append((rounding_price(bid_price), rounding(trade_volume)))
 
                     # Шаг 3 - продажа USDC за USDT
                     sell_orders_usdc_to_usdt = []
@@ -175,9 +181,10 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         if qty_usdc <= 0:
                             break
                         trade_volume = min(qty_usdc, bid_volume)
-                        final_usdt += trade_volume * bid_price
-                        qty_usdc -= trade_volume
-                        sell_orders_usdc_to_usdt.append((bid_price, rounding(trade_volume)))
+                        if rounding(trade_volume) > 0:
+                            final_usdt += trade_volume * bid_price
+                            qty_usdc -= trade_volume
+                            sell_orders_usdc_to_usdt.append((rounding_price(bid_price), rounding(trade_volume)))
 
                     if final_usdt > 100:
                         final_usdt = rounding(final_usdt, degree=1000)
@@ -211,7 +218,8 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdt / ask_price, ask_volume)
                         qty_usdt -= trade_volume * ask_price
                         qty_usdc += rounding(trade_volume)
-                        buy_orders_usdt_to_usdc.append((ask_price, rounding(trade_volume)))
+                        if rounding(trade_volume) > 0:
+                            buy_orders_usdt_to_usdc.append((rounding_price(ask_price), rounding(trade_volume)))
 
                     # Шаг 2: Покупка монеты за USDC
                     buy_orders_usdc = []
@@ -221,7 +229,8 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(qty_usdc / ask_price, ask_volume)
                         qty_usdc -= trade_volume * ask_price
                         coins_buyed += rounding(trade_volume)
-                        buy_orders_usdc.append((ask_price, rounding(trade_volume)))
+                        if rounding(trade_volume) > 0:
+                            buy_orders_usdc.append((rounding_price(ask_price), rounding(trade_volume)))
 
                     # Шаг 3: Продажа монеты за USDT
                     sell_orders_usdt = []
@@ -232,7 +241,8 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                         trade_volume = min(coins_buyed, bid_volume)
                         final_usdt += trade_volume * bid_price * (1 - fee)
                         coins_buyed -= trade_volume
-                        sell_orders_usdt.append((bid_price, rounding(trade_volume)))
+                        if rounding(trade_volume) > 0:
+                            sell_orders_usdt.append((rounding_price(bid_price), rounding(trade_volume)))
 
                     if final_usdt > 100:
                         final_usdt = rounding(final_usdt, degree=1000)
