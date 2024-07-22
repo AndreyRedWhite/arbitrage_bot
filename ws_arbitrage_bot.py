@@ -6,14 +6,13 @@ def main():
     ws = WebSocket(
         testnet=False,
         channel_type='spot',
-        trace_logging=True,
     )
 
     def handle_message(message):
         print(message)
 
     ws.ticker_stream(
-        symbol='BTCUSDT',
+        symbol='APEXUSDT',
         callback=handle_message,
     )
 
