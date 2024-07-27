@@ -152,12 +152,13 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                     qty_usdc = 0
                     buy_orders_usdt = []
 
+                    # ШАГ1. Покупка монет за USDT
                     for ask_price, ask_volume in usdt_asks:
-                        if qty_usdt <= 0:
+                        if rounding(qty_usdt) <= 0:
                             break
                         trade_volume = min(qty_usdt / ask_price, ask_volume)
                         qty_usdt -= trade_volume * ask_price
-                        coins_buyed += rounding(trade_volume * (1 - fee))
+                        coins_buyed += rounding(rounding(trade_volume) * (1 - fee))
                         if rounding(trade_volume) > 0:
                             buy_orders_usdt.append((rounding_price(ask_price), rounding(trade_volume)))
 
@@ -165,11 +166,11 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                     sell_orders_usdc = []
 
                     for bid_price, bid_volume in usdc_bids:
-                        if coins_buyed <= 0:
+                        if rounding(coins_buyed) <= 0:
                             break
                         trade_volume = min(coins_buyed, bid_volume)
                         if rounding(trade_volume) > 0:
-                            coins_buyed -= trade_volume
+                            coins_buyed -= rounding(trade_volume)
                             qty_usdc += trade_volume * bid_price
                             sell_orders_usdc.append((rounding_price(bid_price), rounding(trade_volume)))
 
@@ -178,7 +179,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                     final_usdt = 0
 
                     for bid_price, bid_volume in usdc_to_usdt_bids:
-                        if qty_usdc <= 0:
+                        if rounding(qty_usdc) <= 0:
                             break
                         trade_volume = min(qty_usdc, bid_volume)
                         if rounding(trade_volume) > 0:
@@ -213,7 +214,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
 
                     # Шаг 1: Покупка USDC за USDT
                     for ask_price, ask_volume in usdt_to_usdc_asks:
-                        if qty_usdt <= 0:
+                        if rounding(qty_usdt) <= 0:
                             break
                         trade_volume = min(qty_usdt / ask_price, ask_volume)
                         qty_usdt -= trade_volume * ask_price
@@ -224,7 +225,7 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                     # Шаг 2: Покупка монеты за USDC
                     buy_orders_usdc = []
                     for ask_price, ask_volume in usdc_asks:
-                        if qty_usdc <= 0:
+                        if rounding(qty_usdc) <= 0:
                             break
                         trade_volume = min(qty_usdc / ask_price, ask_volume)
                         qty_usdc -= trade_volume * ask_price
@@ -236,10 +237,11 @@ def calculate_arbitrage_opportunities(prices, fee=0.001):
                     sell_orders_usdt = []
                     final_usdt = 0
                     for bid_price, bid_volume in usdt_bids:
-                        if coins_buyed <= 0:
+                        if rounding(coins_buyed) <= 0:
                             break
                         trade_volume = min(coins_buyed, bid_volume)
                         final_usdt += trade_volume * bid_price * (1 - fee)
+                        final_usdt = rounding(final_usdt)
                         coins_buyed -= trade_volume
                         if rounding(trade_volume) > 0:
                             sell_orders_usdt.append((rounding_price(bid_price), rounding(trade_volume)))

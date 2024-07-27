@@ -24,4 +24,6 @@ Order filled: 1734528609819128064
 Bot crashed with error: Order quantity exceeded lower limit. (ErrCode: 170136) (ErrTime: 20:38:44).
 Request → POST https://api.bybit.com/v5/order/create: {"category": "spot", "symbol": "APEXUSDC", "side": "Sell", "order_type": "Limit", "qty": "0.01", "price": "2.3083", "time_in_force": "GTC"}.
 
+-----------
+2024-07-24 03:37:06,787 - Bot crashed with error: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
 
