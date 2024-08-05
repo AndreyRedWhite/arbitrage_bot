@@ -2,6 +2,7 @@ settings/.env
 arbitrage_bot.log
 arbitrage_opportunities.txt
 <<<<<<< HEAD
+/logs/*
 
 
 # Byte-compiled / optimized / DLL files
