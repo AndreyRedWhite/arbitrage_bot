@@ -2,6 +2,8 @@ settings/.env
 arbitrage_bot.log
 arbitrage_opportunities.txt
 <<<<<<< HEAD
+settings/chat_id
+
 /logs/*
 
 
